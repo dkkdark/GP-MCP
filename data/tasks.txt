@@ -1,0 +1,311 @@
+Operational application systems I Preparation FC 1 (PseudoCode)
+Preparation Task "Algorithms on Graphs": A company is hierarchically organized (in the form of a pyramid). That is, all employees, except for the CEO, are assigned to exactly one direct supervisor. The organizational structure of the company is described by the following two tables MA and ORG:
+
+Table MA: Employee Master Data
+
+EmployeeID
+name
+Primary key
+
+
+UH
+Andrea Hansen
+BK
+Bernd Kruger
+CD
+Chris Dick
+DX
+Do Xin
+EY
+Eren Yildiz
+
+Table ORG: Structure Data
+EmployeeID
+SupervisorID
+Primary Key Foreign Key
+Primary Key Foreign Key
+
+Supervisor of the employee
+UH
+DX
+BK
+DX
+CD
+EY
+DX
+FZ
+EY
+FZ
+
+
+a) Illustrate the structural data from ORG graphically as a tree!
+
+b) Describe an algorithm in pseudocode that outputs how many employees are directly subordinate to a given employee (EmployeeID) on the next hierarchy level. Use the pseudocode elements provided in the appendix.
+
+
+c) Explain how one can determine the name of the company's CEO from the given tables without sketching the graph and determine the solution visually by inspection.
+c1) first in natural language
+c2) in pseudocode! Use the pseudocode elements provided in the appendix.
+
+d) Describe an algorithm in pseudocode that outputs the hierarchy level of any given employee (given EmployeeID). This is determined by the path length from the employee to the top CEO, meaning that the CEO is positioned at hierarchy level 0, and the employees directly beneath them at level 1, and so on.
+
+d1) Solve the problem without recursion.
+d2) Solve the problem using recursion.
+
+Note: The algorithms should be general enough to be applicable to hierarchical organizational structures of other companies as well!
+
+Pseudocode building blocks
+Meaning
+Pseudocode
+allocation
+:= or ¬
+
+Comparison
+= ¹ < > …. or equal to not equal to...
+
+Logical operators
+Ù Ú Ø ... Or and and or or not
+
+Set Operators
+È, insert into set, remove from set...
+
+Conditional Execution
+· Be sure to use indentations to clarify the assignment.
+If condition then
+Yes - statement
+Else
+no - statement
+endif
+
+If condition then
+Yes - statement
+otherwise
+no - statement
+EndIf
+
+Case Expression of
+value1: statement1
+...
+valuen: statementn
+default: statement
+endcase
+
+Generic Loops
+· Be sure to use indentations to clarify the assignment.
+· Be sure to use the end... keyword to clarify the end of the loop.
+for value:= 1 to n do
+statements
+endfor
+
+Loop from value:= 1 to n :
+statements
+endLoop
+---
+
+for all a є A do
+statements
+endfor
+---
+while condition do
+statements
+endwhile
+---
+repeat
+statements
+until condition
+
+repeat until
+statements
+until condition
+Loops over tables
+Loop all records rec of table …
+statements
+endloop
+---
+Loop over all records rec of table …
+statements
+EndLoop
+
+Filtering a table
+…. _tmp ¬ filter table …. with condition…
+…. _tmp ¬ filter table …. with condition…
+
+Sorting a table
+A_sort ← Sort table A [ascending] by the field …
+A_sort ← Sort table A [descending] by the field …
+
+Reading exactly one record
+Record ¬ read record from table …. with condition
+Record ¬ read record in table …. with condition
+Record ¬ read first record from table ….
+Record ¬ read next record from table ….
+Create a record or modify a record
+A ← create record in table ...
+A ← modify record in table ...
+
+Operations on fields of a table: minimum, maximum, or sum
+
+value ← min ... of field f of table ...
+value ← max ... of field f of table ...
+value ← sum ... of field f of table ...
+
+Operations on tables
+value ¬ Count the number of records in the table ...
+
+Operations on directed graphs
+
+M ¬ all child nodes of node ...
+M ¬ all parent nodes of node ...
+
+General Operations
+Write Output... Output...
+
+Check if last operation was successful
+
+Value ¬ Increment variable value
+
+varYear ¬ Determine year from date
+varYearMonth ¬ Determine year and month from date
+
+DateYFirst ¬ Determine the first calendar day of the year for year
+DateYLast ¬ Determine the last calendar day of the year for year
+DateYMFirst ¬ Determine the first calendar day of yearMonth
+DateYMLast ¬ Determine the last calendar day of yearMonth
+
+Insert into FIFO Queue
+W ¬ Add object x to FIFO queue W
+Remove from FIFO Queue
+X ¬ Remove object from FIFO queue W with the longest waiting time
+Rule 1
+If you are looking for a number of records in a table that satisfy a condition, this task should preferably be solved by filtering the table by using the "count records" function after filtering.
+Rule 2 (extended Rule 1)
+Use loops in table editing only when absolutely necessary.
+
+and prefer functions on tables (e.g., count records) or their fields (e.g., sum of column), possibly in combination with filtering.
+Rule 3
+If a value needs to be increased by one, the increment command should be used.
+
+Formatting for AI processing:
+
+Pseudocode patterns that should preferably be used for algorithm design. Each group of operations is introduced by an asterisk (*). At the end of the list are rules that must be observed.
+
+* Assignment
+Pseudocode: ← or =
+
+* Logical Comparison
+Pseudocode: <, >, <=, >=, =, <> (or "equal", "not equal")
+
+* Logical Operators
+Pseudocode: ∧ (and), ∨ (or), ¬ (not)
+
+* Set Operations
+Pseudocode: insert into set, remove from set
+
+* Conditional Execution
+Pseudocode:
+If condition then
+Yes - statement
+else
+No - statement
+EndIf
+
+or:
+If condition then
+Yes - statement
+else
+No - statement
+EndFalls
+
+* Case Expression
+Pseudocode:
+Case Expression
+Value1: statement1
+Value2: statement2
+default: statementDefault
+EndCase
+
+* Generic Loops
+Pseudocode:
+** Simple Loop
+for value := 1 to n do
+statements
+endfor
+
+- or:
+Loop from value := 1 to n
+statements
+endloop
+
+** For "while" loops:
+while condition do
+statements
+endwhile
+
+** For "repeat-until" loops:
+repeat
+statements
+until condition
+
+* Looping over tables
+Pseudocode:
+Loop all records rec of table
+statements
+endloop
+
+* Filtering a table
+Pseudocode:
+A_tmp ← filter table "A" with condition...
+
+Sorting a table
+Pseudocode:
+A_sort ← sort table "A" [ascending] by field...
+A_sort ← sort table "A" [descending] by field...
+
+* Reading exactly one record
+Pseudocode:
+Record ← read record from table... with condition...
+
+* Create new record or modify existing record in a table
+Pseudocode:
+A ← create record in table...
+A ← modify record in table ...
+
+* Operations on fields of a table: minimum, maximum, or sum
+Pseudocode:
+value ← min ... of field f of table ...
+value ← max ... of field f of table ...
+value ← sum ... of field f of table ...
+
+* Operations on tables
+Pseudocode:
+value ← count number of records in table ...
+
+* Graph Operations
+Pseudocode:
+M ← all nodes of node...
+
+* General Operations
+Pseudocode:
+** Write output... output...
+
+** Check if last operation was successful (returns logical value true/false)
+**Value ← Increment variable value
+** varYear ← determine year from date
+** varYearMonth ← determine year and month from date
+** DateYFirst ← determine the first calendar day of the year for year
+** DateYLast ← determine the last calendar day of the year for year
+** DateYMFirst ← determine the first calendar day for yearMonth
+** DateYMLast ← determine the last calendar day for yearMonth
+
+* FIFO Queue Operations
+** Insert into FIFO Queue
+Pseudocode:
+W ← Add object x to FIFO queue W
+** Remove from FIFO Queue
+Pseudocode:
+X ← Remove object from FIFO queue W with the longest wait time
+
+## Note: The following rules should be used when processing tables:
+** Rule 1: If you are looking for a number of records in a table that satisfy a condition, this task should preferably be solved by filtering the table and using the "count records" function after filtering.
+** Rule 2 (extended Rule 1): Use loops in table processing only when absolutely necessary, and prefer functions on tables or their fields.
+** Rule 3: If a value needs to be incremented by one, use the increment command.
