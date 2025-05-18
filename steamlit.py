@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 import streamlit as st
-from agent import ask, create_history
+from agent import setupState
 from client import connect_to_server
 from tools import load_tools
 from langchain_openai import ChatOpenAI
@@ -25,7 +25,8 @@ async def get_response_async(user_query: str, history: list, llm):
     async with connect_to_server() as session:
         tools = await load_tools(session)
         llm_with_tools = llm.bind_tools(tools)
-        response_content = await ask(user_query, llm_with_tools, tools, history.copy())
+        state = await setupState(user_query, llm_with_tools, tools, history.copy())
+        response_content = state["messages"][-1].content
         return response_content
 
 nest_asyncio.apply()
@@ -41,7 +42,7 @@ if "llm" not in st.session_state:
     st.session_state.llm = create_llm()
 
 if "messages" not in st.session_state:
-    st.session_state.messages = create_history()
+    st.session_state.messages = []
 
 for message in st.session_state.messages:
     if type(message) is SystemMessage:

@@ -10,8 +10,6 @@ mcp = FastMCP("Teaching AI")
 model = ChatOpenAI(model='gpt-4.1-mini') 
 
 template = """
-You are a teacher who can clarify, explain tasks and answer questions related to the tasks.
-
 Here are some relevant data related to the question (data): {data}
 
 Here is the question to answer: {question}
