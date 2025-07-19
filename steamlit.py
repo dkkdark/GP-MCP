@@ -1,6 +1,5 @@
 import asyncio
 import random
-
 import nest_asyncio
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -10,50 +9,50 @@ from agent import setupState
 from client import connect_to_server
 from tools import load_tools
 from langchain_openai import ChatOpenAI
+import threading
+from queue import Queue
 import os
 
 load_dotenv()
-
-LOADING_MESSAGES = [
-    "Processing your request..."
-]
-
-def create_llm():
-    return ChatOpenAI(model='gpt-4.1-mini')
-
-async def get_response_async(user_query: str, history: list, llm):
-    async with connect_to_server() as session:
-        tools = await load_tools(session)
-        llm_with_tools = llm.bind_tools(tools)
-        state = await setupState(user_query, llm_with_tools, tools, history.copy())
-        response_content = state["messages"][-1].content
-        return response_content
-
 nest_asyncio.apply()
 
-st.set_page_config(
-    page_title="Teaching",
-    layout="centered",
-)
+LOADING_MESSAGES = [
+    "Processing your request...",
+    "Hang tight, thinking deeply...",
+    "Let me check that for you..."
+]
 
-st.title("Teaching")
+st.set_page_config(page_title="Teaching", layout="centered")
+st.title("Teaching Assistant")
 
 if "llm" not in st.session_state:
-    st.session_state.llm = create_llm()
+    st.session_state.llm = ChatOpenAI(model='gpt-4.1-mini', api_key=os.getenv("OPENAI_API_KEY"))
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-for message in st.session_state.messages:
-    if type(message) is SystemMessage:
-        continue
-    is_user = type(message) is HumanMessage
-    avatar = "👤" if is_user else "🤖"
-    with st.chat_message("user" if is_user else "ai", avatar=avatar):
-        st.markdown(message.content)
+if "vector" not in st.session_state:
+    st.session_state.vector = {
+        "Orientation": 0.0,
+        "Conceptualization": 0.0,
+        "Solution Ideation": 0.0,
+        "Planning": 0.0,
+        "Execution Support": 0.0
+    }
 
-import threading
-from queue import Queue
+async def handle_query(prompt, llm, messages, vector):
+    async with connect_to_server() as session:
+        tools = await load_tools(session)
+        llm_with_tools = llm.bind_tools(tools)
+
+        result_state = await setupState(
+            query=prompt,
+            llm=llm_with_tools,
+            available_tools=tools,
+            messages=messages,
+            vector=vector
+        )
+        return result_state
 
 def run_async_function(coro):
     q = Queue()
@@ -76,21 +75,43 @@ def run_async_function(coro):
         raise result
     return result
 
+for message in st.session_state.messages:
+    if isinstance(message, SystemMessage):
+        continue
+    is_user = isinstance(message, HumanMessage)
+    avatar = "👤" if is_user else "🤖"
+    with st.chat_message("user" if is_user else "ai", avatar=avatar):
+        st.markdown(message.content)
 
 if prompt := st.chat_input("What can I help you with?"):
     st.session_state.messages.append(HumanMessage(content=prompt))
+
     with st.chat_message("user", avatar="👤"):
         st.markdown(prompt)
 
     with st.chat_message("assistant", avatar="🤖"):
-        message_placeholder = st.empty()
-        message_placeholder.status(random.choice(LOADING_MESSAGES), state="running")
+        placeholder = st.empty()
+        placeholder.status(random.choice(LOADING_MESSAGES), state="running")
 
         try:
-            response = run_async_function(
-                get_response_async(prompt, st.session_state.messages, st.session_state.llm)
-            )
-            message_placeholder.markdown(response)
-            st.session_state.messages.append(AIMessage(content=response))
+            result = run_async_function(handle_query(
+                prompt,
+                st.session_state.llm,
+                st.session_state.messages,
+                st.session_state.vector
+            ))
+
+            last_message = ""
+            if "messages" in result and result["messages"]:
+                last_message = result["messages"][-1].content
+
+            placeholder.markdown(last_message)
+
+            if "messages" in result and last_message:
+                st.session_state.messages.append(AIMessage(content=last_message))
+
+            if "vector" in result:
+                st.session_state.vector = result["vector"]
+
         except Exception as e:
-            message_placeholder.error(f"An error occurred: {e}")
+            placeholder.error(f"An error occurred: {e}")

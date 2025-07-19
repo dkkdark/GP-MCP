@@ -1,13 +1,16 @@
 from mcp.server.fastmcp import FastMCP
 from config import Config
-from vector import retriever
+from vector2 import retriever
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 mcp = FastMCP("Teaching AI")
 
-model = ChatOpenAI(model='gpt-4.1-mini') 
+model = ChatOpenAI(model='gpt-4.1-mini', api_key=os.getenv("OPENAI_API_KEY")) 
 
 template = """
 Here are some relevant data related to the question (data): {data}
