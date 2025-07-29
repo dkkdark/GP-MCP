@@ -16,20 +16,32 @@ class State(TypedDict):
     history: list[BaseMessage]
     messages: Annotated[list, add_messages]
     vector: Dict[str, float]
+    current_document: str
 
 graph_builder = StateGraph(State)
 
 
+async def prepare_rag_query(history, query, llm):
+    prompt = prompts.get_rag_query_prompt(history, query)
+    system = SystemMessage(content=prompt.strip())
+    messages = [system]
+    result = await llm.ainvoke(messages)
+    return result.content.strip()
+
 async def assess(state: State) -> Dict:
-    print("assessment...")
     query = state["query"]
     llm = state["llm"]
     tools = state["tools"]
     history = state["messages"]
+    vector = state.get("vector")
+    current_document = state.get("current_document")
 
-    system = SystemMessage(content=prompts.get_assessment_prompt().strip())
+    # Prepare a RAG-specific query
+    rag_query = await prepare_rag_query(history, query, llm)
 
-    messages = history + [system, HumanMessage(content=query)]
+    system = SystemMessage(content=prompts.get_assessment_prompt(vector, current_document).strip())
+
+    messages = history + [system, HumanMessage(content=rag_query)]
     for _ in range(10):
         response = await llm.ainvoke(messages)
         messages.append(response)
@@ -41,15 +53,19 @@ async def assess(state: State) -> Dict:
     raise RuntimeError("Max iterations reached in assess")
 
 async def clarify(state: State) -> Dict:
-    print("clarify...")
     query = state["query"]
     llm = state["llm"]
     tools = state["tools"]
     history = state["messages"]
+    vector = state.get("vector")
+    current_document = state.get("current_document")
 
-    system = SystemMessage(content=prompts.get_clarification_prompt().strip())
+    # Prepare a RAG-specific query
+    rag_query = await prepare_rag_query(history, query, llm)
 
-    messages = history + [system, HumanMessage(content=query)]
+    system = SystemMessage(content=prompts.get_clarification_prompt(vector, current_document).strip())
+
+    messages = history + [system, HumanMessage(content=rag_query)]
     for _ in range(10):
         response = await llm.ainvoke(messages)
         messages.append(response)
@@ -61,15 +77,19 @@ async def clarify(state: State) -> Dict:
     raise RuntimeError("Max iterations reached in clarify")
 
 async def plan(state: State) -> Dict:
-    print("plan...")
     query = state["query"]
     llm = state["llm"]
     tools = state["tools"]
     history = state["messages"]
+    vector = state.get("vector")
+    current_document = state.get("current_document")
 
-    system = SystemMessage(content=prompts.get_planning_prompt().strip())
+    # Prepare a RAG-specific query
+    rag_query = await prepare_rag_query(history, query, llm)
 
-    messages = history + [system, HumanMessage(content=query)]
+    system = SystemMessage(content=prompts.get_planning_prompt(vector, current_document).strip())
+
+    messages = history + [system, HumanMessage(content=rag_query)]
     for _ in range(10):
         response = await llm.ainvoke(messages)
         messages.append(response)
@@ -81,15 +101,19 @@ async def plan(state: State) -> Dict:
     raise RuntimeError("Max iterations reached in clarify")
 
 async def ideat(state: State) -> Dict:
-    print("ideat...")
     query = state["query"]
     llm = state["llm"]
     tools = state["tools"]
     history = state["messages"]
+    vector = state.get("vector")
+    current_document = state.get("current_document")
 
-    system = SystemMessage(content=prompts.get_ideation_prompt().strip())
+    # Prepare a RAG-specific query
+    rag_query = await prepare_rag_query(history, query, llm)
 
-    messages = history + [system, HumanMessage(content=query)]
+    system = SystemMessage(content=prompts.get_ideation_prompt(vector, current_document).strip())
+
+    messages = history + [system, HumanMessage(content=rag_query)]
     for _ in range(10):
         response = await llm.ainvoke(messages)
         messages.append(response)
@@ -101,14 +125,18 @@ async def ideat(state: State) -> Dict:
     raise RuntimeError("Max iterations reached in clarify")
 
 async def motivate(state: State) -> Dict:
-    print("motivate...")
     query = state["query"]
     llm = state["llm"]
     tools = state["tools"]
+    vector = state.get("vector")
+    current_document = state.get("current_document")
 
-    system = SystemMessage(content=prompts.get_motivation_prompt().strip())
+    # Prepare a RAG-specific query
+    rag_query = await prepare_rag_query(state["messages"], query, llm)
 
-    messages = [system, HumanMessage(content=query)]
+    system = SystemMessage(content=prompts.get_motivation_prompt(vector, current_document).strip())
+
+    messages = [system, HumanMessage(content=rag_query)]
     for _ in range(10):
         response = await llm.ainvoke(messages)
         messages.append(response)
@@ -128,6 +156,7 @@ async def classify_message(state: State) -> Dict:
     messages = [system, HumanMessage(content=query)]
     result = await llm.ainvoke(messages)
     label = result.content.strip().lower()
+    print(f"query: {query}")
     print(f"query label: {label}")
     return {"next": label if label in ["orientation", "conceptualization", "solution ideation", "planning", "execution support"] else "orientation", "vector": state["vector"]}
 
@@ -136,7 +165,6 @@ async def set_scores(state: State) -> Dict:
     history = state["messages"]
     vector = state.get("vector")
 
-    print(f"messages: {vector}")
     system = SystemMessage(content=prompts.get_score_prompt(history, query, vector).strip())
     messages = [system, HumanMessage(content=query)]
     result = await state["llm"].ainvoke(messages)
@@ -181,14 +209,16 @@ async def setupState(
     llm: BaseChatModel,
     available_tools: list[BaseTool],
     messages: list[BaseMessage],
-    vector: dict | None = None
+    vector: dict | None = None,
+    current_document: str | None = None
 ):
     parameters = {
         "query": query,
         "llm": llm,
         "tools": available_tools,
         "messages": messages,
-        "vector": vector
+        "vector": vector,
+        "current_document": current_document
     }
     state = await graph.ainvoke(parameters)
     return state

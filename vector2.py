@@ -7,6 +7,7 @@ from langchain_core.documents import Document
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import Chroma
 from openai import OpenAI
+import prompts
 
 def load_docx_plain(filepath):
     doc = DocxDocument(filepath)
@@ -29,29 +30,7 @@ def load_docx_plain(filepath):
     return '\n'.join(full_text)
 
 def extract_semantic_chunks(doc_text):
-    system_prompt = """
-You are an AI assistant designed to deeply analyze and structure educational assignments for students. Your task is to extract and, if necessary, generate the following types of semantic chunks from the provided assignment text:
-
-- \"concept\": The main idea or core definition of the assignment. If not explicitly stated, infer and formulate it yourself.
-- \"solution\": Solutions, hints, or problem-solving strategies relevant to the assignment. If not present, suggest possible approaches based on the content.
-- \"qa\": All questions that the student is expected to answer. Identify both explicit and implicit questions.
-- \"example\": Illustrative examples that clarify the assignment. If none are provided, create a suitable example.
-- \"definition\": Clear term-definition pairs. Extract or generate these as needed.
-- \"instruction\": Specific tasks or steps the student must perform. Identify all actionable instructions.
-- \"table\": Any tables of data present in the assignment. Structure them clearly; if none exist, do not fabricate.
-
-Guidelines:
-- Each chunk should be at least 100 words long, if possible.
-- Do not omit any sentence from the assignment text; ensure all content is included in at least one chunk.
-- If a required chunk type is missing from the assignment, generate it based on your analysis and understanding.
-- Return ONLY a list of JSON objects, one per chunk, in the following format:
-[
-  {\"type\": \"concept\", \"text\": \"...\"},
-  {\"type\": \"qa\", \"text\": \"...\"},
-  ...
-]
-- Be thorough and ensure the output is as complete and helpful as possible for downstream educational applications.
-"""
+    system_prompt = prompts.get_chunck_splitter_prompt()
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     response = client.chat.completions.create(
         model="gpt-4.1-mini",
@@ -87,7 +66,7 @@ def to_langchain_documents(chunks):
     return [
         Document(
             page_content=chunk["text"],
-            metadata={"type": chunk["type"]} # document name, topic, keywords
+            metadata={"type": chunk["type"], "doc_id": chunk["id"].split("_")[0]} # document name, topic, keywords
         ) for chunk in chunks
     ]
 
@@ -111,14 +90,40 @@ def process_directory(input_dir, db_path):
             docs = to_langchain_documents(final_chunks)
             all_docs.extend(docs)
 
-            print(semantic_chunks)
+            print(final_chunks)
 
     db = store_in_chroma(all_docs, db_path)
     return db
+
+def get_chunk_types_for_step(step):
+    step_to_types = {
+        "orientation": ["concept", "example", "instruction", "definition"],
+        "conceptualization": ["concept", "definition", "example"],
+        "solution ideation": ["solution", "example", "qa"],
+        "planning": ["instruction", "solution", "table"],
+        "execution support": ["instruction", "solution", "qa", "table"],
+    }
+    return step_to_types.get(step, [])
+
+
+def get_chunks_for_step(step, retriever, query="*", current_document=None):
+    types = get_chunk_types_for_step(step)
+    results = retriever.get_relevant_documents(query)
+    filtered = [doc for doc in results if doc.metadata.get("type") in types]
+    
+    if current_document:
+        print(f"current_documents = {filtered}")
+        filtered = [doc for doc in filtered if current_document in doc.metadata.get("doc_id", "")]
+    
+    return filtered
 
 filepath = ".//data/tasks.docx"
 db_path = "./teaching_chroma_db"
 
 db = process_directory(".//data", db_path)
+# db = Chroma(
+#         persist_directory=db_path,
+#         embedding_function=OpenAIEmbeddings()
+#     )
 retriever = db.as_retriever(search_type="mmr", search_kwargs={"k": 10})
 print("All documents processed and stored. Retriever is ready.")
