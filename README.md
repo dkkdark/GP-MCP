@@ -7,6 +7,4 @@
 4. Run the chat using 'streamlit run streamlit.py'. You should be redirected to a browser
 
 
-You also need OpenAI api key in your environment.
-
-Contact me in case of questions
+You also need OpenAI api key in .env file.

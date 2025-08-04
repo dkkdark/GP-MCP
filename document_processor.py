@@ -6,7 +6,7 @@ from langchain_core.documents import Document
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import Chroma
 from openai import OpenAI
-import prompts
+from prompts import Prompts
 
 class DocumentProcessor:
     def __init__(self, db_path: str):
@@ -32,6 +32,7 @@ class DocumentProcessor:
 
     def extract_semantic_chunks(self, doc_text):
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        prompts = Prompts()
         response = client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=[

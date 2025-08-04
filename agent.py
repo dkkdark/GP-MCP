@@ -19,7 +19,7 @@ class State(TypedDict):
     current_document: str
 
 class Agent:
-    async def prepare_rag_query(history, query, llm, current_document):
+    async def prepare_rag_query(self, history, query, llm, current_document):
         prompts = Prompts(history, query, None, current_document)
         prompt = prompts.get_rag_query_prompt()
         system = SystemMessage(content=prompt.strip())
@@ -102,7 +102,7 @@ class Agent:
                 messages.append(tool_response)
         raise RuntimeError("Max iterations reached in motivate")
 
-    async def classify_message(state: State) -> Dict:
+    async def classify_message(self, state: State) -> Dict:
         vector = state["vector"]
         query = state["query"]
         history = state["messages"]
@@ -137,6 +137,7 @@ class Agent:
         graph_builder.add_edge("executive_support", END)
 
         graph = graph_builder.compile()
+        return graph
 
 
     async def setupState(
