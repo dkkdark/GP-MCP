@@ -54,16 +54,10 @@ if "llm" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-if "vector" not in st.session_state:
-    st.session_state.vector = {
-        "Orientation": 0.0,
-        "Conceptualization": 0.0,
-        "Solution Ideation": 0.0,
-        "Planning": 0.0,
-        "Execution Support": 0.0
-    }
+if "step" not in st.session_state:
+    st.session_state.step = "orientation"
 
-async def handle_query(prompt, llm, messages, vector, current_document):
+async def handle_query(prompt, llm, messages, step, current_document):
     async with connect_to_server() as session:
         tools = await load_tools(session)
         llm_with_tools = llm.bind_tools(tools)
@@ -75,7 +69,7 @@ async def handle_query(prompt, llm, messages, vector, current_document):
             llm=llm_with_tools,
             available_tools=tools,
             messages=messages,
-            vector=vector,
+            step=step,
             current_document=current_document
         )
         return result_state
@@ -124,7 +118,7 @@ if prompt := st.chat_input("What can I help you with?"):
                 prompt,
                 st.session_state.llm,
                 st.session_state.messages,
-                st.session_state.vector,
+                st.session_state.step,
                 st.session_state.current_document
             ))
 
@@ -137,8 +131,8 @@ if prompt := st.chat_input("What can I help you with?"):
             if "messages" in result and last_message:
                 st.session_state.messages.append(AIMessage(content=last_message))
 
-            if "vector" in result:
-                st.session_state.vector = result["vector"]
+            if "step" in result:
+                st.session_state.step = result["step"]
 
         except Exception as e:
             placeholder.error(f"An error occurred: {e}")

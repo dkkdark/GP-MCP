@@ -10,7 +10,7 @@ load_dotenv()
 
 processor = DocumentProcessor(db_path="./teaching_chroma_db")
 db = processor.initialize_or_load_db(input_dir="./data") 
-retriever = db.as_retriever(search_type="mmr", search_kwargs={"k": 10})
+retriever = db.as_retriever(search_type="mmr", search_kwargs={"k": 6})
 
 model = ChatOpenAI(model='gpt-4.1-mini', api_key=os.getenv("OPENAI_API_KEY"))
 template = """
@@ -33,7 +33,7 @@ def get_task_answer(question: str, step: str, current_document: str) -> str:
         data = [doc.page_content for doc in chunks]
     else:
         data = retriever.invoke(question)
-    result = chain.invoke({"data": data, "question": question})
+    result = chain.invoke({"data": data, "question": question}).content
     return result
 
 if __name__ == "__main__":

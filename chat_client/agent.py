@@ -15,7 +15,7 @@ class State(TypedDict):
     tools: list[BaseTool]
     history: list[BaseMessage]
     messages: Annotated[list, add_messages]
-    vector: Dict[str, float]
+    step: str
     current_document: str
 
 class Agent:
@@ -32,10 +32,10 @@ class Agent:
         llm = state["llm"]
         tools = state["tools"]
         history = state["messages"]
-        vector = state.get("vector")
+        step = state.get("step")
         current_document = state.get("current_document")
 
-        prompts = Prompts(history, query, vector, current_document)
+        prompts = Prompts(history, query, step, current_document)
 
         rag_query = await self.prepare_rag_query(history, query, llm, current_document)
 
@@ -46,7 +46,7 @@ class Agent:
             response = await llm.ainvoke(messages)
             messages.append(response)
             if not response.tool_calls:
-                return {"messages": messages, "vector": state["vector"]}
+                return {"messages": messages, "step": state["step"]}
             for tool_call in response.tool_calls:
                 tool_response = await call_tool(tool_call, tools)
                 messages.append(tool_response)
@@ -57,10 +57,10 @@ class Agent:
         llm = state["llm"]
         tools = state["tools"]
         history = state["messages"]
-        vector = state.get("vector")
+        step = state.get("step")
         current_document = state.get("current_document")
 
-        prompts = Prompts(history, query, vector, current_document)
+        prompts = Prompts(history, query, step, current_document)
 
         rag_query = await self.prepare_rag_query(history, query, llm, current_document)
 
@@ -71,7 +71,7 @@ class Agent:
             response = await llm.ainvoke(messages)
             messages.append(response)
             if not response.tool_calls:
-                return {"messages": messages, "vector": state["vector"]}
+                return {"messages": messages, "step": state["step"]}
             for tool_call in response.tool_calls:
                 tool_response = await call_tool(tool_call, tools)
                 messages.append(tool_response)
@@ -82,10 +82,10 @@ class Agent:
         llm = state["llm"]
         tools = state["tools"]
         history = state["messages"]
-        vector = state.get("vector")
+        step = state.get("step")
         current_document = state.get("current_document")
 
-        prompts = Prompts(history, query, vector, current_document)
+        prompts = Prompts(history, query, step, current_document)
 
         rag_query = await self.prepare_rag_query(history, query, llm, current_document)
 
@@ -96,19 +96,19 @@ class Agent:
             response = await llm.ainvoke(messages)
             messages.append(response)
             if not response.tool_calls:
-                return {"messages": messages, "vector": state["vector"]}
+                return {"messages": messages, "step": state["step"]}
             for tool_call in response.tool_calls:
                 tool_response = await call_tool(tool_call, tools)
                 messages.append(tool_response)
         raise RuntimeError("Max iterations reached in motivate")
 
     async def classify_message(self, state: State) -> Dict:
-        vector = state["vector"]
+        step = state["step"]
         query = state["query"]
         history = state["messages"]
         llm = state["llm"]
 
-        prompts = Prompts(history, query, vector, None)
+        prompts = Prompts(history, query, step, None)
 
         system = SystemMessage(content=prompts.get_step_prompt().strip())
         messages = [system, HumanMessage(content=query)]
@@ -116,7 +116,7 @@ class Agent:
         label = result.content.strip().lower()
         print(f"query: {query}")
         print(f"query label: {label}")
-        return {"next": label if label in ["orientation", "conceptualisation", "executive_support"] else "orientation", "vector": state["vector"]}
+        return {"next": label if label in ["orientation", "conceptualisation", "executive_support"] else "orientation", "step": state["step"]}
 
     def create_graph(self):
         graph_builder = StateGraph(State)
@@ -146,7 +146,7 @@ class Agent:
         llm: BaseChatModel,
         available_tools: list[BaseTool],
         messages: list[BaseMessage],
-        vector: dict | None = None,
+        step: str | None = None,
         current_document: str | None = None
     ):
         parameters = {
@@ -154,7 +154,7 @@ class Agent:
             "llm": llm,
             "tools": available_tools,
             "messages": messages,
-            "vector": vector,
+            "step": step,
             "current_document": current_document
         }
         graph = self.create_graph()
