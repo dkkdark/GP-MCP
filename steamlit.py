@@ -5,13 +5,14 @@ from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 import streamlit as st
-from agent import setupState
+from agent import Agent
 from client import connect_to_server
 from tools import load_tools
 from langchain_openai import ChatOpenAI
 import threading
 from queue import Queue
 import os
+from prompts import Prompts
 
 load_dotenv()
 nest_asyncio.apply()
@@ -22,14 +23,20 @@ LOADING_MESSAGES = [
     "Let me check that for you..."
 ]
 
+folder_path = './/data/tasks' 
+
+document_options = [
+    os.path.splitext(f)[0]
+    for f in os.listdir(folder_path)
+    if os.path.isfile(os.path.join(folder_path, f))
+]
+
 st.set_page_config(page_title="Teaching", layout="centered")
 st.title("Teaching Assistant")
 
-# Document selection dropdown
 if "current_document" not in st.session_state:
-    st.session_state.current_document = "tasks"
+    st.session_state.current_document = document_options[0]
 
-document_options = ["tasks", "task2"]
 selected_document = st.selectbox(
     "Select the task you're working on:",
     document_options,
@@ -57,7 +64,9 @@ async def handle_query(prompt, llm, messages, vector, current_document):
         tools = await load_tools(session)
         llm_with_tools = llm.bind_tools(tools)
 
-        result_state = await setupState(
+        agent = Agent()
+
+        result_state = await agent.setupState(
             query=prompt,
             llm=llm_with_tools,
             available_tools=tools,
@@ -102,7 +111,7 @@ simulate_student = st.sidebar.checkbox("Simulate student (AI)", value=False)
 # Determine the initial prompt
 prompt = None
 if simulate_student and not st.session_state.messages:
-    prompt = "Hello, I want to start. Tell me about the task"
+    prompt = "Hello, I want to start. Tell me what you know"
 else:
     user_prompt = st.chat_input("What can I help you with?")
     if user_prompt:
@@ -144,16 +153,17 @@ if prompt:
 
         # Student simulation loop
         if simulate_student:
-            import prompts
             max_turns = 10
             turns = 0
             while turns < max_turns:
-                # Prepare history and last assistant response
                 history = '\n'.join([m.content for m in st.session_state.messages if isinstance(m, (HumanMessage, AIMessage))][:-1])
                 last_response = last_message
+                
+                prompts = Prompts(history)
+
                 student_prompt = run_async_function(
                     st.session_state.llm.ainvoke([
-                        SystemMessage(content=prompts.get_student_simulation_prompt(history, last_response))
+                        SystemMessage(content=prompts.get_student_simulation_prompt(last_response))
                     ])
                 ).content.strip()
                 if not student_prompt or "done" in student_prompt.lower():

@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 import streamlit as st
-from agent import setupState
+from agent import Agent
 from client import connect_to_server
 from tools import load_tools
 from langchain_openai import ChatOpenAI
@@ -22,13 +22,20 @@ LOADING_MESSAGES = [
     "Let me check that for you..."
 ]
 
+folder_path = './/data/tasks' 
+
+document_options = [
+    os.path.splitext(f)[0]
+    for f in os.listdir(folder_path)
+    if os.path.isfile(os.path.join(folder_path, f))
+]
+
 st.set_page_config(page_title="Teaching", layout="centered")
 st.title("Teaching Assistant")
 
 if "current_document" not in st.session_state:
-    st.session_state.current_document = "tasks"
+    st.session_state.current_document = document_options[0]
 
-document_options = ["tasks", "task2"]
 selected_document = st.selectbox(
     "Select the task you're working on:",
     document_options,
@@ -56,7 +63,9 @@ async def handle_query(prompt, llm, messages, vector, current_document):
         tools = await load_tools(session)
         llm_with_tools = llm.bind_tools(tools)
 
-        result_state = await setupState(
+        agent = Agent()
+
+        result_state = await agent.setupState(
             query=prompt,
             llm=llm_with_tools,
             available_tools=tools,

@@ -1,39 +1,38 @@
 from mcp.server.fastmcp import FastMCP
 from config import Config
-from vector2 import retriever, get_chunks_for_step
+from document_processor import DocumentProcessor
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
-import os
 from dotenv import load_dotenv
+import os
 
 load_dotenv()
 
-mcp = FastMCP("Teaching AI")
+processor = DocumentProcessor(db_path="./teaching_chroma_db")
+db = processor.initialize_or_load_db(input_dir="./data") 
+retriever = db.as_retriever(search_type="mmr", search_kwargs={"k": 10})
 
-model = ChatOpenAI(model='gpt-4.1-mini', api_key=os.getenv("OPENAI_API_KEY")) 
-
+model = ChatOpenAI(model='gpt-4.1-mini', api_key=os.getenv("OPENAI_API_KEY"))
 template = """
 Here are some relevant data related to the question (data): {data}
 
 Here is the question to answer: {question}
 
-Give only the information you found in data
+Give the answer based only on the information you found in the data
 """
 prompt = ChatPromptTemplate.from_template(template)
 chain = prompt | model
 
+mcp = FastMCP("Teaching AI")
+
 @mcp.tool()
-def get_task_answer(question: str, step: str, current_document: str) -> int:
-    print(f"qqqq question {question}")
-    print(f"qqqq step {step}")
+def get_task_answer(question: str, step: str, current_document: str) -> str:
+    print(f"question {question}")
     if step:
-        # Получаем только релевантные чанки для этапа
-        chunks = get_chunks_for_step(step, retriever, question, current_document)
+        chunks = processor.get_chunks_for_step(step, retriever, question, current_document)
         data = [doc.page_content for doc in chunks]
     else:
-        # Старое поведение — все чанки
         data = retriever.invoke(question)
-    print(data)
     result = chain.invoke({"data": data, "question": question})
     return result
 
