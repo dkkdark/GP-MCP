@@ -1,7 +1,7 @@
 import contextlib
 from mcp import ClientSession
 from mcp.client.sse import sse_client
-from config import Config
+from common.config import Config
 
 def server_url():
     return f"http://{Config.Server.HOST}:{Config.Server.PORT}{Config.Server.SSE_PATH}"

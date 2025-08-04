@@ -1,3 +1,9 @@
+import os
+import sys
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(PROJECT_ROOT)
+
 import asyncio
 import random
 import nest_asyncio
@@ -5,13 +11,12 @@ from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 import streamlit as st
-from agent import Agent
-from client import connect_to_server
-from tools import load_tools
+from chat_client.agent import Agent
+from chat_client.client import connect_to_server
+from chat_client.tools import load_tools
 from langchain_openai import ChatOpenAI
 import threading
 from queue import Queue
-import os
 
 load_dotenv()
 nest_asyncio.apply()

@@ -5,8 +5,8 @@ from typing import Dict, Annotated
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from typing_extensions import TypedDict
-from tools import call_tool
-from prompts import Prompts
+from chat_client.tools import call_tool
+from common.prompts import Prompts
 import json
 
 class State(TypedDict):
