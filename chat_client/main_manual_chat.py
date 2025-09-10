@@ -17,36 +17,160 @@ from chat_client.tools import load_tools
 from langchain_openai import ChatOpenAI
 import threading
 from queue import Queue
+from server.document_processor import DocumentProcessor
 
 load_dotenv()
 nest_asyncio.apply()
 
 LOADING_MESSAGES = [
     "Processing your request...",
-    "Hang tight, thinking deeply...",
     "Let me check that for you..."
 ]
 
-folder_path = './/data/tasks' 
-
-document_options = [
-    os.path.splitext(f)[0]
-    for f in os.listdir(folder_path)
-    if os.path.isfile(os.path.join(folder_path, f))
-]
+os.makedirs("./data/tasks", exist_ok=True)
+os.makedirs("./data/materials", exist_ok=True)
 
 st.set_page_config(page_title="Teaching", layout="centered")
 st.title("Teaching Assistant")
 
-if "current_document" not in st.session_state:
-    st.session_state.current_document = document_options[0]
+@st.cache_resource
+def get_document_processor():
+    return DocumentProcessor(db_path="./teaching_chroma_db")
 
-selected_document = st.selectbox(
-    "Select the task you're working on:",
-    document_options,
-    index=document_options.index(st.session_state.current_document)
-)
-st.session_state.current_document = selected_document
+processor = get_document_processor()
+
+def get_document_options():
+    folder_path = './data/tasks'
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path, exist_ok=True)
+        return []
+    
+    return [
+        os.path.splitext(f)[0]
+        for f in os.listdir(folder_path)
+        if os.path.isfile(os.path.join(folder_path, f)) and f.endswith('.docx')
+    ]
+
+def save_uploaded_file(uploaded_file, target_folder):
+    try:
+        target_path = os.path.join(target_folder, uploaded_file.name)
+        
+        if os.path.exists(target_path):
+            return False, f"File {uploaded_file.name} already exists"
+        
+        with open(target_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        
+        return True, f"File {uploaded_file.name} successfully uploaded"
+    except Exception as e:
+        return False, f"Error uploading: {str(e)}"
+
+def process_uploaded_file(file_path):
+    try:
+        docs = processor.process_single_file(file_path)
+        return True, len(docs)
+    except Exception as e:
+        return False, str(e)
+
+document_options = get_document_options()
+
+with st.sidebar:
+    st.header("📁 Upload files")
+    
+    file_type = st.radio(
+        "File type:",
+        ["Tasks", "Materials"],
+        help="Select the folder to upload files"
+    )
+    
+    if file_type == "Tasks":
+        target_folder = "./data/tasks"
+    else:
+        target_folder = "./data/materials"
+    
+    st.info(f"📂 Folder: `{target_folder}`")
+    
+    uploaded_files = st.file_uploader(
+        "Upload .docx files",
+        type=['docx'],
+        accept_multiple_files=True,
+        help="Only .docx files are supported"
+    )
+    
+    if uploaded_files:
+        st.write(f"Selected files: {len(uploaded_files)}")
+        
+        for file in uploaded_files:
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.write(f"📄 {file.name}")
+            with col2:
+                st.write(f"{file.size / 1024:.1f} KB")
+        
+        if st.button("🚀 Upload files", type="primary"):
+            success_count = 0
+            error_count = 0
+            processed_count = 0
+            
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            for i, uploaded_file in enumerate(uploaded_files):
+                try:
+                    success, message = save_uploaded_file(uploaded_file, target_folder)
+                    
+                    if success:
+                        success_count += 1
+                        status_text.text(f"Uploaded: {uploaded_file.name}")
+                        
+                        file_path = os.path.join(target_folder, uploaded_file.name)
+                        with st.spinner(f"Processing {uploaded_file.name}..."):
+                            process_success, result = process_uploaded_file(file_path)
+                            if process_success:
+                                processed_count += 1
+                                st.success(f"✅ {uploaded_file.name} processed ({result} chunks)")
+                            else:
+                                st.error(f"❌ Error processing {uploaded_file.name}: {result}")
+                    else:
+                        error_count += 1
+                        st.warning(message)
+                    
+                except Exception as e:
+                    error_count += 1
+                    st.error(f"Error uploading {uploaded_file.name}: {str(e)}")
+                
+                progress_bar.progress((i + 1) / len(uploaded_files))
+            
+            if success_count > 0:
+                st.success(f"✅ Successfully uploaded {success_count} files")
+                if processed_count > 0:
+                    st.success(f"🔄 Processed {processed_count} files")
+                    st.balloons()
+                    st.info("🎉 New files are ready to use!")
+                if error_count > 0:
+                    st.warning(f"⚠️ Errors uploading: {error_count}")
+                
+                st.rerun()
+            else:
+                st.error("❌ Failed to upload any files")
+
+if "current_document" not in st.session_state:
+    st.session_state.current_document = document_options[0] if document_options else None
+
+document_options = get_document_options()
+
+if document_options:
+    selected_document = st.selectbox(
+        "Select the task you're working on:",
+        document_options,
+        index=document_options.index(st.session_state.current_document) if st.session_state.current_document in document_options else 0
+    )
+    st.session_state.current_document = selected_document
+    
+    st.info(f"📄 Working on task: **{selected_document}**")
+else:
+    st.info("📝 No available tasks. Upload files in the sidebar.")
+    st.session_state.current_document = None
 
 if "llm" not in st.session_state:
     st.session_state.llm = ChatOpenAI(model='gpt-4.1-mini', api_key=os.getenv("OPENAI_API_KEY"))
@@ -104,35 +228,38 @@ for message in st.session_state.messages:
         st.markdown(message.content)
 
 if prompt := st.chat_input("What can I help you with?"):
-    st.session_state.messages.append(HumanMessage(content=prompt))
+    if not st.session_state.current_document:
+        st.error("⚠️ Please upload and select a task in the sidebar.")
+    else:
+        st.session_state.messages.append(HumanMessage(content=prompt))
 
-    with st.chat_message("user", avatar="👤"):
-        st.markdown(prompt)
+        with st.chat_message("user", avatar="👤"):
+            st.markdown(prompt)
 
-    with st.chat_message("assistant", avatar="🤖"):
-        placeholder = st.empty()
-        placeholder.status(random.choice(LOADING_MESSAGES), state="running")
+        with st.chat_message("assistant", avatar="🤖"):
+            placeholder = st.empty()
+            placeholder.status(random.choice(LOADING_MESSAGES), state="running")
 
-        try:
-            result = run_async_function(handle_query(
-                prompt,
-                st.session_state.llm,
-                st.session_state.messages,
-                st.session_state.step,
-                st.session_state.current_document
-            ))
+            try:
+                result = run_async_function(handle_query(
+                    prompt,
+                    st.session_state.llm,
+                    st.session_state.messages,
+                    st.session_state.step,
+                    st.session_state.current_document
+                ))
 
-            last_message = ""
-            if "messages" in result and result["messages"]:
-                last_message = result["messages"][-1].content
+                last_message = ""
+                if "messages" in result and result["messages"]:
+                    last_message = result["messages"][-1].content
 
-            placeholder.markdown(last_message)
+                placeholder.markdown(last_message)
 
-            if "messages" in result and last_message:
-                st.session_state.messages.append(AIMessage(content=last_message))
+                if "messages" in result and last_message:
+                    st.session_state.messages.append(AIMessage(content=last_message))
 
-            if "step" in result:
-                st.session_state.step = result["step"]
+                if "step" in result:
+                    st.session_state.step = result["step"]
 
-        except Exception as e:
-            placeholder.error(f"An error occurred: {e}")
+            except Exception as e:
+                placeholder.error(f"An error occurred: {e}")

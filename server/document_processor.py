@@ -61,6 +61,163 @@ class DocumentProcessor:
             ) for chunk in chunks
         ]
 
+    def process_single_file(self, filepath):
+        """Processes a single file and adds it to the database"""
+        if not filepath.endswith(".docx"):
+            raise ValueError("Only .docx files are supported")
+        
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"File not found: {filepath}")
+        
+        print(f"Processing file: {filepath}")
+        
+        # Extract filename without extension
+        doc_id = os.path.splitext(os.path.basename(filepath))[0]
+        
+        # Load text from file
+        doc_text = self.load_docx_plain(filepath)
+        print(f"Extracted text length: {len(doc_text)} characters")
+        
+        # Create semantic chunks
+        semantic_chunks = self.extract_semantic_chunks(doc_text)
+        print(f"Created semantic chunks: {len(semantic_chunks)}")
+        
+        # Create final chunks with ID
+        final_chunks = self.chunk_large_items(semantic_chunks, doc_id, filepath)
+        print(f"Created final chunks: {len(final_chunks)}")
+        
+        # Convert to LangChain documents
+        docs = self.to_langchain_documents(final_chunks)
+        
+        # Load existing database or create new one
+        if os.path.exists(self.db_path):
+            print("Loading existing database...")
+            self.db = Chroma(persist_directory=self.db_path, embedding_function=self.embedding_function)
+        else:
+            print("Creating new database...")
+            self.db = Chroma(persist_directory=self.db_path, embedding_function=self.embedding_function)
+        
+        # Add documents to database
+        print("Adding documents to database...")
+        self.db.add_documents(docs)
+        
+        # Update chunks file
+        self._update_chunks_file(docs)
+        
+        print(f"File {filepath} successfully processed and added to database")
+        return docs
+
+    def _update_chunks_file(self, new_docs):
+        """Updates chuncks.txt file with new documents"""
+        try:
+            # Read existing chunks
+            existing_chunks = []
+            if os.path.exists('chuncks.txt'):
+                with open('chuncks.txt', 'r', encoding='utf-8') as f:
+                    existing_chunks = f.readlines()
+            
+            # Add new chunks
+            with open('chuncks.txt', 'w', encoding='utf-8') as f:
+                # Write existing chunks
+                for chunk in existing_chunks:
+                    f.write(chunk)
+                # Write new chunks
+                for doc in new_docs:
+                    f.write(f"{doc}\n")
+        except Exception as e:
+            print(f"Error updating chunks file: {e}")
+
+    def remove_file_from_db(self, filepath):
+        try:
+            # Получаем имя файла без расширения
+            file_name = os.path.splitext(os.path.basename(filepath))[0]
+            print(f"Удаление файла {file_name} из базы данных...")
+            
+            # Загружаем базу данных
+            if not os.path.exists(self.db_path):
+                print("База данных не существует")
+                return False, 0
+            
+            self.db = Chroma(persist_directory=self.db_path, embedding_function=self.embedding_function)
+            
+            # Получаем все документы
+            all_docs = self.db.get()
+            
+            # Находим документы, которые относятся к удаляемому файлу
+            docs_to_remove = []
+            for i, doc_id in enumerate(all_docs['ids']):
+                if file_name in doc_id:
+                    docs_to_remove.append(doc_id)
+            
+            # Удаляем документы из базы данных
+            if docs_to_remove:
+                self.db.delete(ids=docs_to_remove)
+                print(f"Удалено {len(docs_to_remove)} чанков из базы данных")
+                
+                # Обновляем файл чанков
+                self._remove_from_chunks_file(docs_to_remove)
+                
+                return True, len(docs_to_remove)
+            else:
+                print("Документы для удаления не найдены")
+                return True, 0
+                
+        except Exception as e:
+            print(f"Ошибка при удалении файла из базы данных: {e}")
+            return False, str(e)
+
+    def _remove_from_chunks_file(self, removed_ids):
+        """Удаляет чанки из файла chuncks.txt"""
+        try:
+            if not os.path.exists('chuncks.txt'):
+                return
+            
+            # Читаем все строки
+            with open('chuncks.txt', 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+            
+            # Фильтруем строки, исключая удаленные ID
+            filtered_lines = []
+            for line in lines:
+                should_keep = True
+                for removed_id in removed_ids:
+                    if removed_id in line:
+                        should_keep = False
+                        break
+                if should_keep:
+                    filtered_lines.append(line)
+            
+            # Записываем обратно
+            with open('chuncks.txt', 'w', encoding='utf-8') as f:
+                f.writelines(filtered_lines)
+                
+        except Exception as e:
+            print(f"Ошибка при обновлении файла чанков: {e}")
+
+    def get_db_stats(self):
+        try:
+            if not os.path.exists(self.db_path):
+                return {"total_documents": 0, "message": "База данных не существует"}
+            
+            self.db = Chroma(persist_directory=self.db_path, embedding_function=self.embedding_function)
+            all_docs = self.db.get()
+            
+            # Подсчитываем уникальные файлы
+            unique_files = set()
+            for doc_id in all_docs['ids']:
+                # Извлекаем имя файла из ID
+                parts = doc_id.split('_')
+                if len(parts) >= 2:
+                    unique_files.add(parts[0])
+            
+            return {
+                "total_documents": len(all_docs['ids']),
+                "unique_files": len(unique_files),
+                "file_names": list(unique_files)
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
     def process_directory(self, input_dir):
         all_docs = []
         for root, _, files in os.walk(input_dir):

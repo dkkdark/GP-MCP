@@ -10,7 +10,7 @@ load_dotenv()
 
 processor = DocumentProcessor(db_path="./teaching_chroma_db")
 db = processor.initialize_or_load_db(input_dir="./data") 
-retriever = db.as_retriever(search_type="mmr", search_kwargs={"k": 6})
+retriever = db.as_retriever(search_type="mmr", search_kwargs={"k": 4})
 
 model = ChatOpenAI(model='gpt-4.1-mini', api_key=os.getenv("OPENAI_API_KEY"))
 template = """
