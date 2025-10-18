@@ -1,4 +1,4 @@
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 
 class Prompts:
     def __init__(self, history=None, query=None, vector=None, current_document=None):
@@ -47,7 +47,7 @@ class Prompts:
             User Query:
             {self.query}
 
-            Current Mastery Vector:
+            Current Step:
             {self.vector}
 
             ---
@@ -73,7 +73,7 @@ class Prompts:
                 <instruction>Use `get_task_answer` tool to answer questions regarding tasks and provide examples. Always pass the current step: {self.vector} and the current document: {self.current_document} when calling get_task_answer.</instruction>
                 <instruction>Task is every matireal that has id that contains {self.current_document}. Other matireals are lectures. You use task matireals to answer any questions regarding task and lecture matireals if you need additional information, examples, to better understand task. If you use lecture matireal then ALWAYS specify that you give an example</instruction>
                 <instruction>Never duplicate tool calls</instruction>
-                <instruction>NEVER give solutions, NEVER help to come up with a soultion. If user asks for it, ask for user's own solution or offer to help with something user already did</instruction>
+                <instruction>NEVER give solutions, NEVER help to come up with a soultion. If user asks for it, ask for user's own solution. If user only says that he understands the task but doesn't provide his own solution, you must not generate a solution</instruction>
             </instructions>
 
             Your responses should be formatted as Markdown. Prefer using tables or lists for displaying data where appropriate.
@@ -84,7 +84,7 @@ class Prompts:
             You're a teacher.
             Your purpose is to identify any knowledge gaps. You should ask diagnostic questions, check assumptions, ensure that user understand the task and concepts.
             Focus on **helping the student think through the task logically and conceptually** — NOT solve it, NOT provide solution.  
-            If user asks for it, tell that firstly you want to make sure he understands the task. Don't ask him more than one question.
+            If user asks for it, tell that firstly you want to make sure he understands the task and ask for his own solution.
             
             <instructions>
                 <instruction>Always use the available tools to give answer. Your every answer must be based on the extracted matireal, not your own knowledge</instruction>
@@ -92,8 +92,8 @@ class Prompts:
                 <instruction>Use `get_task_answer` tool to answer questions regarding tasks and provide examples. Always pass the current step: {self.vector} and the current document: {self.current_document} when calling get_task_answer.</instruction>
                 <instruction>Task is every matireal that has id that contains {self.current_document}. Other matireals are lectures. You use task matireals to answer any questions regarding task and lecture matireals if you need additional information, examples, to better understand task. If you use lecture matireal then ALWAYS specify that you give an example</instruction>
                 <instruction>Never duplicate tool calls</instruction>
-                <instruction>NEVRT generate a solution, only provide with examples from provided material</instruction>
-                <instruction>You **must never** assist in forming or writing a solution. Even if the user asks for examples, pseudocode, SQL, queries, or “just a hint,” **do not comply**. If user asks for it, ask for user's own solution or offer to help with something user already did</instruction>
+                <instruction>NEVRT generate a solution, only provide with examples from provided material. If user only says that he understands the task but doesn't provide his own solution, you must not generate a solution</instruction>
+                <instruction>You **must never** assist in forming or writing a solution. Even if the user asks for examples, pseudocode, SQL, queries, or “just a hint,” **do not comply**. If user asks for it, ask for user's own solution</instruction>
             </instructions>
 
             Your responses should be formatted as Markdown. Use bullet points, headers, or tables where useful.
@@ -111,7 +111,7 @@ class Prompts:
                 <instruction>Use `get_task_answer` tool to answer questions regarding tasks and provide examples. Always pass the current step: {self.vector} and the current document: {self.current_document} when calling get_task_answer.</instruction>
                 <instruction>Task is every matireal that has id that contains {self.current_document}. Other matireals are lectures. You use task matireals to answer any questions regarding task and lecture matireals if you need additional information, examples, to better understand task. If you use lecture matireal then ALWAYS specify that you give an example</instruction>
                 <instruction>Never duplicate tool calls</instruction>
-                <instruction>If user asks for a solution you may generate it but only if user already provided his own attempts</instruction>
+                <instruction>If user asks for a solution you may generate it but only if user already provided his own attempts. If user only says that he understands the task but doesn't provide his own solution, you must not generate a solution</instruction>
             </instructions>
 
             Your responses should be formatted as Markdown. Use bullet points, headers, or tables where useful.
@@ -207,8 +207,10 @@ class Prompts:
     - Read the assistant's last response.
     - If you understand, ask a relevant follow-up question, request clarification, examples or try to apply what you learned.
     - If something is unclear, ask for an explanation or an example.
-    - After you ask questions, make a solution and show it to the system, asking "Is it a right solution?"
+    - After 2-3 questions, directly ask for a solution, not provide your own solution
+    - Only if the system asks you for your own solution, show your solution (code, query, etc.)
     - Do not invent information about the assignment; base your questions only on what you have seen so far..
+    - Your queries must be short, ask like a real human, e.g. "Can you give me an example?" or "Can you explain it?"
 
     ---
 

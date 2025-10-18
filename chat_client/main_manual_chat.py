@@ -19,7 +19,7 @@ import threading
 from queue import Queue
 from server.document_processor import DocumentProcessor
 
-load_dotenv()
+load_dotenv(override=True)
 nest_asyncio.apply()
 
 LOADING_MESSAGES = [

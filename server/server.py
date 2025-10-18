@@ -6,7 +6,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
+load_dotenv(override=True)
 
 processor = DocumentProcessor(db_path="./teaching_chroma_db")
 db = processor.initialize_or_load_db(input_dir="./data") 

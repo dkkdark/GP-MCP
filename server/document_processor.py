@@ -1,12 +1,13 @@
 import os
 import json
 from docx import Document as DocxDocument
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import Chroma
+from langchain_openai import OpenAIEmbeddings
+from langchain_chroma import Chroma
 from openai import OpenAI
 from common.prompts import Prompts
+from dotenv import load_dotenv
+load_dotenv(override=True)
 
 class DocumentProcessor:
     def __init__(self, db_path: str):
@@ -227,15 +228,13 @@ class DocumentProcessor:
         step_to_types = {
             "orientation": ["concept", "example", "instruction", "definition", "table"],
             "conceptualization": ["concept", "definition", "example", "table"],
-            "solution ideation": ["solution", "example", "qa", "table"],
-            "planning": ["instruction", "solution", "table"],
-            "execution support": ["instruction", "solution", "qa", "table"],
+            "execution support": ["instruction", "solution", "qa", "table", "example"],
         }
         return step_to_types.get(step, [])
 
     def get_chunks_for_step(self, step, retriever, query="*", current_document=None):
         types = self.get_chunk_types_for_step(step)
-        results = retriever.get_relevant_documents(query)
+        results = retriever.invoke(query)
         print(results)
         filtered = [doc for doc in results]
         if current_document:
